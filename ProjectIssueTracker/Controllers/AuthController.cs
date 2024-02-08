@@ -1,17 +1,18 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ProjectIssueTracker.Data;
 using ProjectIssueTracker.Dtos.RequestDtos;
 using ProjectIssueTracker.Dtos.ResponseDtos;
+using ProjectIssueTracker.Features.Authentication.Login;
 using ProjectIssueTracker.Models;
-using ProjectIssueTracker.Repositories.Contracts;
-using ProjectIssueTracker.Repositories.Repos;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using NuGet.Protocol.Plugins;
+using ProjectIssueTracker.Features.Authentication.Register;
+using ISender = MediatR.ISender;
 
 namespace ProjectIssueTracker.Controllers
 {
@@ -26,57 +27,38 @@ namespace ProjectIssueTracker.Controllers
         private readonly IWebHostEnvironment _env;
 
         private readonly string _imageDirectory;
+        private readonly ISender _sender;
 
-        public AuthController(ApiDBContext context, IConfiguration config, IMapper mapper, IWebHostEnvironment env)
+        public AuthController(ApiDBContext context, IConfiguration config, IMapper mapper, IWebHostEnvironment env,ISender sender)
         {
             _context = context;
             _config = config;
             _mapper = mapper;
             _env = env;
             _imageDirectory = env.WebRootPath + @"\Images";
+            _sender = sender;
         }
         [HttpPost("login")]
-        public IActionResult Login(UserLoginDto userLoginDto)
+        public async  Task<IActionResult> Login(UserLoginDto userLoginDto)
         {
-
-            var foundUser = _context.Users.FirstOrDefault(u => u.Email == userLoginDto.Email);
-            if (foundUser == null)
+            var result = await _sender.Send(new LoginCommand() { Email = userLoginDto.Email, Password=userLoginDto.Password});
+            if (result.IsFailure)
             {
-                return NotFound("Credentials Incorrect");
+                return BadRequest(result.Error);
             }
-
-            var passwordMatch = BCrypt.Net.BCrypt.Verify(userLoginDto.Password, foundUser.Password);
-
-            if (!passwordMatch)
-            {
-                return NotFound("Credentials Incorrect");
-            }
-
-            var token = GenerateToken(foundUser);
-
-            return Ok(new { user = _mapper.Map<UserDto>(foundUser), token });
+            return Ok(result.Value);
         }
 
         [HttpPost("register")]
-        public IActionResult Register(UserRegistrationDto user)
+        public async Task<IActionResult> Register(UserRegistrationDto user)
         {
-            var foundUser = _context.Users.FirstOrDefault(u => u.Email == user.Email);
-            if (foundUser != null)
+            var registerCommand = await _sender.Send(new RegisterCommand(){Email = user.Email,Name = user.Name,Password = user.Password});
+            if (registerCommand.IsFailure)
             {
-                return BadRequest("User already has an account with the same email");
+                return BadRequest(registerCommand.Error);
             }
-            var passwordHash = BCrypt.Net.BCrypt.HashPassword(user.Password);
-            var CreatedUser = new User
-            {
-                Email = user.Email,
-                Password = passwordHash,
-                Name = user.Name
-            };
-            _context.Users.Add(CreatedUser);
-            _context.SaveChanges();
-            var token = GenerateToken(CreatedUser);
 
-            return Ok(new { user = _mapper.Map<UserDto>(CreatedUser), token });
+            return Ok(registerCommand.Value);
         }
 
         [HttpPost("image-upload")]

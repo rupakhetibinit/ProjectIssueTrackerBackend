@@ -25,18 +25,19 @@ namespace ProjectIssueTracker
 
             // Add services to the container.
 
-            var connectionString = builder.Configuration.GetConnectionString("ApiConnection");
+            var connectionString = builder.Configuration.GetConnectionString("SqliteConnection");
 
             builder.Services.AddDbContext<ApiDBContext>(options => options
-            //.UseLazyLoadingProxies()
-            .UseSqlServer(connectionString));
+           //.UseLazyLoadingProxies()
+           // .UseSqlServer(connectionString));
+           .UseSqlite(connectionString));
 
             //builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
             //builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 
             builder.Services.AddScoped<IProjectService, ProjectService>();
             builder.Services.AddSingleton<IssueHubService>();
-
+            builder.Services.AddScoped<IJwtProvider, JwtProvider>();
             builder.Services.AddScoped<IUserService, UserService>();
 
             builder.Services.AddScoped<ICollaboratorService, CollaboratorService>();
@@ -44,6 +45,9 @@ namespace ProjectIssueTracker
             builder.Services.AddScoped<IIssueService, IssueService>();
 
             builder.Services.AddAutoMapper(typeof(AutoMapperProfiles));
+            builder.Services.AddMediatR((config)=> {
+                config.RegisterServicesFromAssembly(typeof(Program).Assembly);
+                });
 
             builder.Services.AddControllers();
             //.AddJsonOptions(options =>
