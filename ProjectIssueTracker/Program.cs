@@ -14,6 +14,7 @@ using ProjectIssueTracker.Services;
 using Swashbuckle.AspNetCore.Filters;
 using System.Text;
 using System.Text.Json.Serialization;
+using FluentValidation;
 
 namespace ProjectIssueTracker
 {
@@ -50,6 +51,7 @@ namespace ProjectIssueTracker
                 });
 
             builder.Services.AddControllers();
+            builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
             //.AddJsonOptions(options =>
             //{
             //    options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.Preserve;
